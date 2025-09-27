@@ -1,0 +1,298 @@
+/* Global Tech Theme Styles */
+
+/* Common Animations */
+@keyframes scan {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes glow {
+  from { filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5)); }
+  to { filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.8)); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes glitch {
+  0%, 90%, 100% { transform: translate(0); }
+  92% { transform: translate(-2px, 2px); }
+  94% { transform: translate(2px, -2px); }
+  96% { transform: translate(-1px, 1px); }
+}
+
+@keyframes grid-move {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(50px, 50px); }
+}
+
+/* Tech-themed Element Plus overrides */
+:root {
+  --el-bg-color: rgba(30, 41, 59, 0.8);
+  --el-bg-color-overlay: rgba(30, 41, 59, 0.9);
+  --el-text-color-primary: #ffffff;
+  --el-text-color-regular: #94a3b8;
+  --el-text-color-secondary: #64748b;
+  --el-border-color: rgba(59, 130, 246, 0.3);
+  --el-border-color-light: rgba(59, 130, 246, 0.2);
+  --el-fill-color-blank: rgba(15, 23, 42, 0.8);
+  --el-fill-color-light: rgba(59, 130, 246, 0.1);
+  --el-color-primary: #3b82f6;
+  --el-color-primary-light-3: rgba(59, 130, 246, 0.3);
+  --el-color-primary-light-5: rgba(59, 130, 246, 0.5);
+  --el-color-primary-light-7: rgba(59, 130, 246, 0.7);
+  --el-color-primary-light-8: rgba(59, 130, 246, 0.8);
+  --el-color-primary-light-9: rgba(59, 130, 246, 0.9);
+  --el-color-success: #10b981;
+  --el-color-warning: #f59e0b;
+  --el-color-danger: #ef4444;
+  --el-color-error: #ef4444;
+  --el-color-info: #64748b;
+}
+
+/* Body background */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f172a 100%);
+  color: #ffffff;
+  overflow-x: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+
+/* Tech-themed cards */
+.tech-card {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tech-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4);
+  animation: scan 3s linear infinite;
+}
+
+.tech-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+}
+
+/* Tech-themed buttons */
+.tech-button {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tech-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  transition: left 0.3s ease;
+}
+
+.tech-button:hover::before {
+  left: 100%;
+}
+
+.tech-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+}
+
+/* Tech-themed input fields */
+.tech-input {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #ffffff;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.tech-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  outline: none;
+}
+
+/* Tech-themed table styling */
+.tech-table {
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tech-table .el-table__header-wrapper {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.tech-table .el-table__header th {
+  background: transparent;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+  font-weight: 600;
+}
+
+.tech-table .el-table__body td {
+  background: transparent;
+  color: #94a3b8;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.tech-table .el-table__body tr:hover td {
+  background: rgba(59, 130, 246, 0.1);
+  color: #ffffff;
+}
+
+/* Tech-themed status indicators */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.active {
+  background: #10b981;
+}
+
+.status-dot.inactive {
+  background: #64748b;
+}
+
+.status-dot.error {
+  background: #ef4444;
+}
+
+.status-dot.warning {
+  background: #f59e0b;
+}
+
+/* Tech-themed tags */
+.tech-tag {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.tech-tag:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Responsive utilities */
+@media (max-width: 768px) {
+  .hide-mobile {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .hide-small {
+    display: none;
+  }
+}
+
+/* Loading animation */
+.tech-loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(59, 130, 246, 0.3);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Cyber grid background */
+.cyber-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.1) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: grid-move 20s linear infinite;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Glitch text effect */
+.glitch-text {
+  position: relative;
+  animation: glitch 3s infinite;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Neon glow effect */
+.neon-glow {
+  filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.8));
+  animation: glow 2s ease-in-out infinite alternate;
+}

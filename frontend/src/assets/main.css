@@ -1,0 +1,24 @@
+@import './base.css';
+@import './apple.css';
+
+/* Reset default styles for Apple design system */
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--gray-9);
+  color: var(--gray-1);
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Remove default margins and padding */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
