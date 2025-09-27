@@ -4,6 +4,11 @@ from sqlalchemy.sql import func
 import enum
 from app.core.database import Base
 
+class UserRole(enum.Enum):
+    SYSTEM_ADMIN = "SYSTEM_ADMIN"
+    PROJECT_ADMIN = "PROJECT_ADMIN" 
+    REGULAR_USER = "REGULAR_USER"
+
 class User(Base):
     __tablename__ = "users"
     
@@ -11,6 +16,7 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    role = Column(Enum(UserRole), default=UserRole.REGULAR_USER, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -57,6 +63,18 @@ class Project(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     creator = relationship("User", back_populates="projects")
+    user_permissions = relationship("UserProjectPermission", back_populates="project")
+
+class UserProjectPermission(Base):
+    __tablename__ = "user_project_permissions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User", backref="project_permissions")
+    project = relationship("Project", back_populates="user_permissions")
 
 class InspectionTask(Base):
     __tablename__ = "inspection_tasks"

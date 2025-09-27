@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, SessionLocal
 from app.models.models import Base
-from app.api import auth, projects, data_sources, inspection_tasks, dashboard
+from app.api import auth, projects, data_sources, inspection_tasks, dashboard, users
 from app.schedulers.factory import SchedulerManager
 
 # Configure logging
@@ -74,6 +74,7 @@ app.include_router(projects.router, prefix=f"{settings.API_V1_STR}/projects", ta
 app.include_router(data_sources.router, prefix=f"{settings.API_V1_STR}/data-sources", tags=["data-sources"])
 app.include_router(inspection_tasks.router, prefix=f"{settings.API_V1_STR}/inspection-tasks", tags=["inspection-tasks"])
 app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"])
+app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 
 # Make scheduler manager available to routers
 app.state.scheduler_manager = scheduler_manager

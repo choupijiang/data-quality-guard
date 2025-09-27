@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
-import { onMounted, onUnmounted, ref } from 'vue'
-import { DataAnalysis, Cpu, Monitor, Connection, Setting, ArrowDown } from '@element-plus/icons-vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { DataAnalysis, Cpu, Monitor, Connection, Setting, ArrowDown, User, SwitchButton } from '@element-plus/icons-vue'
 import api from '@/utils/api'
+import { useAuthStore } from '@/stores/auth'
 
 interface NavStats {
   dataSources: number
   tasks: number
   projects: number
 }
+
+const authStore = useAuthStore()
 
 const navStats = ref<NavStats>({
   dataSources: 0,
@@ -17,6 +20,51 @@ const navStats = ref<NavStats>({
 })
 
 const showSettingsDropdown = ref(false)
+const showUserDropdown = ref(false)
+
+// 生成随机头像
+const generateUserAvatar = (username: string) => {
+  // 基于用户名生成一致的随机颜色
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57',
+    '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43',
+    '#10AC84', '#EE5A24', '#0652DD', '#9C88FF', '#FFC312'
+  ]
+  
+  // 使用用户名的hash来选择颜色
+  let hash = 0
+  for (let i = 0; i < username.length; i++) {
+    hash = username.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  
+  const colorIndex = Math.abs(hash) % colors.length
+  const backgroundColor = colors[colorIndex]
+  
+  // 获取用户名首字母
+  const initial = username.charAt(0).toUpperCase()
+  
+  return {
+    backgroundColor,
+    initial,
+    hasImage: false
+  }
+}
+
+// 获取当前用户头像信息
+const currentUserAvatar = computed(() => {
+  if (authStore.user?.username) {
+    return generateUserAvatar(authStore.user.username)
+  }
+  return {
+    backgroundColor: '#E0E0E0',
+    initial: 'U',
+    hasImage: false
+  }
+})
+
+// Computed properties for access control
+const canAccessUserManagement = computed(() => authStore.isSystemAdmin)
+const isLoggedIn = computed(() => authStore.isAuthenticated)
 
 const loadNavStats = async () => {
   try {
@@ -78,10 +126,33 @@ if (typeof window !== 'undefined') {
 
 // 点击外部关闭下拉菜单
 const handleClickOutside = (event: MouseEvent) => {
-  const dropdown = document.querySelector('.nav-dropdown')
-  if (dropdown && !dropdown.contains(event.target as Node)) {
-    showSettingsDropdown.value = false
+  const dropdowns = document.querySelectorAll('.nav-dropdown')
+  dropdowns.forEach(dropdown => {
+    if (!dropdown.contains(event.target as Node)) {
+      if (dropdown.querySelector('.settings-toggle')) {
+        showSettingsDropdown.value = false
+      }
+      if (dropdown.querySelector('.user-toggle')) {
+        showUserDropdown.value = false
+      }
+    }
+  })
+}
+
+// 用户退出登录
+const handleLogout = () => {
+  authStore.logout()
+  showUserDropdown.value = false
+}
+
+// 获取角色标签
+const getRoleLabel = (role?: string) => {
+  const roleMap: Record<string, string> = {
+    'SYSTEM_ADMIN': '系统管理员',
+    'PROJECT_ADMIN': '项目管理员',
+    'REGULAR_USER': '普通用户'
   }
+  return roleMap[role || ''] || '未知角色'
 }
 
 onMounted(() => {
@@ -150,8 +221,52 @@ onUnmounted(() => {
                   <span class="dropdown-text">项目管理</span>
                   <span class="dropdown-badge" id="projects-count"></span>
                 </RouterLink>
+                <RouterLink 
+                  to="/admin/users" 
+                  class="dropdown-item" 
+                  @click="showSettingsDropdown = false"
+                  v-if="canAccessUserManagement"
+                >
+                  <el-icon class="dropdown-icon"><User /></el-icon>
+                  <span class="dropdown-text">用户管理</span>
+                </RouterLink>
               </div>
             </div>
+
+            <!-- User Dropdown -->
+            <div class="nav-dropdown" :class="{ active: showUserDropdown }" v-if="isLoggedIn">
+              <div class="nav-item user-toggle" @click="showUserDropdown = !showUserDropdown" data-tooltip="用户账户">
+                <!-- 用户头像 -->
+                <div class="user-avatar" :style="{ backgroundColor: currentUserAvatar.backgroundColor }">
+                  {{ currentUserAvatar.initial }}
+                </div>
+                <span class="nav-text">{{ authStore.user?.username || '用户' }}</span>
+                <el-icon class="dropdown-arrow" :class="{ rotated: showUserDropdown }"><ArrowDown /></el-icon>
+              </div>
+              <div class="dropdown-menu" v-show="showUserDropdown">
+                <RouterLink to="/profile" class="dropdown-item user-info" @click="showUserDropdown = false">
+                  <!-- 用户头像 -->
+                  <div class="user-avatar dropdown-avatar" :style="{ backgroundColor: currentUserAvatar.backgroundColor }">
+                    {{ currentUserAvatar.initial }}
+                  </div>
+                  <div class="user-details">
+                    <span class="user-name">{{ authStore.user?.username }}</span>
+                    <span class="user-role">{{ getRoleLabel(authStore.user?.role) }}</span>
+                  </div>
+                </RouterLink>
+                <div class="dropdown-divider"></div>
+                <div class="dropdown-item" @click="handleLogout">
+                  <el-icon class="dropdown-icon"><SwitchButton /></el-icon>
+                  <span class="dropdown-text">退出登录</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Login Link -->
+            <RouterLink v-else to="/login" class="nav-item" data-tooltip="用户登录">
+              <el-icon class="nav-icon"><User /></el-icon>
+              <span class="nav-text">登录</span>
+            </RouterLink>
           </nav>
         </div>
       </div>
@@ -551,6 +666,85 @@ html {
   transform: scale(1);
 }
 
+/* User Info Styles */
+.user-info {
+  background: transparent !important;
+  cursor: pointer !important;
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.user-info:hover {
+  background: var(--gray-6) !important;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--gray-1);
+}
+
+.user-role {
+  font-size: var(--font-size-xs);
+  color: var(--gray-4);
+  font-weight: 400;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--gray-5);
+  margin: var(--spacing-sm) var(--spacing-md);
+}
+
+/* User Avatar Styles */
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  border: 2px solid transparent;
+}
+
+.user-avatar:hover {
+  transform: scale(1.05);
+  border-color: var(--gray-3);
+}
+
+.user-toggle .user-avatar {
+  margin-right: var(--spacing-sm);
+}
+
+.dropdown-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  margin-right: var(--spacing-md);
+}
+
+/* Update user-toggle to accommodate avatar */
+.user-toggle {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md) !important;
+}
+
+.user-toggle .nav-text {
+  margin-right: var(--spacing-xs);
+}
+
 /* Close dropdown when clicking outside */
 @media (max-width: 768px) {
   .dropdown-menu {
@@ -564,6 +758,18 @@ html {
   
   .dropdown-text {
     font-size: var(--font-size-xs);
+  }
+  
+  .user-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .dropdown-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
   }
 }
 </style>

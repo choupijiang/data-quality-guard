@@ -3,16 +3,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import create_access_token
+from app.core.security import create_access_token, get_current_user
 from app.core.config import settings
 from app.schemas.schemas import Token, UserCreate, User
 from app.services.services import UserService
+from app.models.models import UserRole
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/token")
 
 @router.post("/register", response_model=User)
 def register(user: UserCreate, db: Session = Depends(get_db)):
+    """Register new user with default regular user role"""
     user_service = UserService(db)
     
     # Check if user already exists
@@ -28,7 +30,8 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
             detail="Email already registered"
         )
     
-    return user_service.create_user(user)
+    # Create user with default role
+    return user_service.create_user(user, UserRole.REGULAR_USER)
 
 @router.post("/token", response_model=Token)
 def login_for_access_token(
@@ -51,9 +54,8 @@ def login_for_access_token(
 
 @router.get("/me", response_model=User)
 def read_users_me(
-    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Token verification would go here
-    # For now, return a dummy response
-    return {"id": 1, "username": "test", "email": "test@example.com", "is_active": True, "created_at": "2023-01-01T00:00:00"}
+    """Get current user information"""
+    return current_user

@@ -3,6 +3,11 @@ from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
+class UserRole(str, Enum):
+    SYSTEM_ADMIN = "SYSTEM_ADMIN"
+    PROJECT_ADMIN = "PROJECT_ADMIN"
+    REGULAR_USER = "REGULAR_USER"
+
 class DataSourceType(str, Enum):
     MYSQL = "mysql"
     POSTGRESQL = "postgresql"
@@ -19,11 +24,31 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     username: Optional[str] = None
     email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
     is_active: Optional[bool] = None
 
 class User(UserBase):
     id: int
+    role: UserRole
     is_active: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class UserProjectPermissionBase(BaseModel):
+    user_id: int
+    project_id: int
+
+class UserProjectPermissionCreate(BaseModel):
+    project_ids: List[int]
+
+class UserProjectPermissionAssign(UserProjectPermissionBase):
+    pass
+
+class UserProjectPermission(UserProjectPermissionBase):
+    id: int
     created_at: datetime
     
     class Config:

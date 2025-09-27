@@ -7,8 +7,8 @@ import psycopg2
 from clickhouse_driver import Client
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
-from app.models.models import User, Project, DataSource, InspectionTask, InspectionResult
-from app.schemas.schemas import UserCreate, ProjectCreate, DataSourceCreate, DataSourceUpdate, InspectionTaskCreate, InspectionTaskUpdate, ConnectionTest
+from app.models.models import User, Project, DataSource, InspectionTask, InspectionResult, UserProjectPermission, UserRole
+from app.schemas.schemas import UserCreate, ProjectCreate, DataSourceCreate, DataSourceUpdate, InspectionTaskCreate, InspectionTaskUpdate, ConnectionTest, UserUpdate, UserProjectPermissionCreate
 from app.core.security import get_password_hash, verify_password
 
 logger = logging.getLogger(__name__)
@@ -17,23 +17,37 @@ class UserService:
     def __init__(self, db: Session):
         self.db = db
     
-    def create_user(self, user: UserCreate) -> User:
-        hashed_password = get_password_hash(user.password)
-        db_user = User(
-            username=user.username,
-            email=user.email,
-            hashed_password=hashed_password
-        )
-        self.db.add(db_user)
-        self.db.commit()
-        self.db.refresh(db_user)
-        return db_user
+    def create_user(self, user: UserCreate, role: UserRole = UserRole.REGULAR_USER) -> User:
+        try:
+            hashed_password = get_password_hash(user.password)
+            db_user = User(
+                username=user.username,
+                email=user.email,
+                hashed_password=hashed_password,
+                role=role,
+                is_active=True
+            )
+            self.db.add(db_user)
+            self.db.commit()
+            self.db.refresh(db_user)
+            return db_user
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error creating user {user.username}: {str(e)}")
+            raise e
+    
+    def create_user_with_role(self, user: UserCreate, role: UserRole) -> User:
+        """Create user with specific role (for admin use)"""
+        return self.create_user(user, role)
     
     def get_user_by_username(self, username: str) -> User:
         return self.db.query(User).filter(User.username == username).first()
     
     def get_user_by_email(self, email: str) -> User:
         return self.db.query(User).filter(User.email == email).first()
+    
+    def get_user_by_id(self, user_id: int) -> User:
+        return self.db.query(User).filter(User.id == user_id).first()
     
     def authenticate_user(self, username: str, password: str) -> User:
         user = self.get_user_by_username(username)
@@ -45,6 +59,98 @@ class UserService:
     
     def get_users(self, skip: int = 0, limit: int = 100) -> List[User]:
         return self.db.query(User).offset(skip).limit(limit).all()
+    
+    def update_user(self, user_id: int, user_update: UserUpdate) -> User:
+        try:
+            user = self.get_user_by_id(user_id)
+            if not user:
+                return None
+            
+            update_data = user_update.dict(exclude_unset=True)
+            
+            # Handle password separately to hash it
+            if 'password' in update_data and update_data['password']:
+                hashed_password = get_password_hash(update_data['password'])
+                user.hashed_password = hashed_password
+                del update_data['password']
+            
+            # Update other fields
+            for field, value in update_data.items():
+                setattr(user, field, value)
+            
+            self.db.commit()
+            self.db.refresh(user)
+            return user
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error updating user {user_id}: {str(e)}")
+            raise e
+    
+    def delete_user(self, user_id: int) -> bool:
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        self.db.delete(user)
+        self.db.commit()
+        return True
+    
+    def get_accessible_projects(self, user_id: int) -> List[int]:
+        """Get list of project IDs user has access to"""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return []
+        
+        # System and project admins have access to all projects
+        if user.role in [UserRole.SYSTEM_ADMIN, UserRole.PROJECT_ADMIN]:
+            projects = self.db.query(Project.id).all()
+            return [project.id for project in projects]
+        
+        # Regular users have access to assigned projects only
+        permissions = self.db.query(UserProjectPermission.project_id).filter(
+            UserProjectPermission.user_id == user_id
+        ).all()
+        return [permission.project_id for permission in permissions]
+    
+    def assign_project_permission(self, user_id: int, project_id: int) -> UserProjectPermission:
+        """Assign project permission to user"""
+        # Check if permission already exists
+        existing = self.db.query(UserProjectPermission).filter(
+            UserProjectPermission.user_id == user_id,
+            UserProjectPermission.project_id == project_id
+        ).first()
+        
+        if existing:
+            return existing
+        
+        permission = UserProjectPermission(
+            user_id=user_id,
+            project_id=project_id
+        )
+        self.db.add(permission)
+        self.db.commit()
+        self.db.refresh(permission)
+        return permission
+    
+    def remove_project_permission(self, user_id: int, project_id: int) -> bool:
+        """Remove project permission from user"""
+        permission = self.db.query(UserProjectPermission).filter(
+            UserProjectPermission.user_id == user_id,
+            UserProjectPermission.project_id == project_id
+        ).first()
+        
+        if not permission:
+            return False
+        
+        self.db.delete(permission)
+        self.db.commit()
+        return True
+    
+    def get_user_project_permissions(self, user_id: int) -> List[UserProjectPermission]:
+        """Get all project permissions for a user"""
+        return self.db.query(UserProjectPermission).filter(
+            UserProjectPermission.user_id == user_id
+        ).all()
 
 class ProjectService:
     def __init__(self, db: Session):
@@ -380,6 +486,25 @@ class InspectionTaskService:
     
     def get_tasks(self, skip: int = 0, limit: int = 100) -> List[InspectionTask]:
         return self.db.query(InspectionTask).offset(skip).limit(limit).all()
+    
+    def get_tasks_by_user_permissions(self, user_id: int, skip: int = 0, limit: int = 100) -> List[InspectionTask]:
+        """获取用户有权限的项目下的inspection tasks"""
+        from app.models.models import UserProjectPermission
+        
+        # 获取用户有权限的项目ID列表
+        user_projects = self.db.query(UserProjectPermission.project_id).filter(
+            UserProjectPermission.user_id == user_id
+        ).all()
+        
+        project_ids = [perm.project_id for perm in user_projects]
+        
+        if not project_ids:
+            return []
+        
+        # 只返回用户有权限的项目下的tasks
+        return self.db.query(InspectionTask).filter(
+            InspectionTask.project_id.in_(project_ids)
+        ).offset(skip).limit(limit).all()
     
     def get_task(self, task_id: int) -> InspectionTask:
         return self.db.query(InspectionTask).filter(InspectionTask.id == task_id).first()

@@ -3,8 +3,10 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.security import get_current_user
 from app.schemas.schemas import InspectionTask, InspectionTaskCreate, InspectionTaskUpdate, InspectionResult
 from app.services.services import InspectionTaskService
+from app.models.models import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -44,13 +46,19 @@ def create_task(
 def read_tasks(
     skip: int = 0,
     limit: int = 100,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    logger.info(f"Fetching inspection tasks with skip={skip}, limit={limit}")
+    logger.info(f"Fetching inspection tasks for user {current_user.username} with skip={skip}, limit={limit}")
     task_service = InspectionTaskService(db)
     try:
-        result = task_service.get_tasks(skip=skip, limit=limit)
-        logger.info(f"Successfully fetched {len(result)} inspection tasks")
+        # 如果是系统管理员，可以看到所有任务
+        if current_user.role == "SYSTEM_ADMIN":
+            result = task_service.get_tasks(skip=skip, limit=limit)
+        else:
+            # 普通用户只能看到自己有权限的项目下的任务
+            result = task_service.get_tasks_by_user_permissions(current_user.id, skip=skip, limit=limit)
+        logger.info(f"Successfully fetched {len(result)} inspection tasks for user {current_user.username}")
         return result
     except Exception as e:
         logger.error(f"Error fetching inspection tasks: {str(e)}")
@@ -59,12 +67,20 @@ def read_tasks(
 @router.get("/{task_id}", response_model=InspectionTask)
 def read_task(
     task_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     task_service = InspectionTaskService(db)
     task = task_service.get_task(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="Task not found")
+    
+    # 权限检查：系统管理员可以看到所有任务，普通用户只能看到有权限的项目下的任务
+    if current_user.role != "SYSTEM_ADMIN":
+        user_tasks = task_service.get_tasks_by_user_permissions(current_user.id)
+        if not any(t.id == task_id for t in user_tasks):
+            raise HTTPException(status_code=403, detail="You don't have permission to access this task")
+    
     return task
 
 @router.put("/{task_id}", response_model=InspectionTask)
