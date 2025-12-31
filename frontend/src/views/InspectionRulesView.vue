@@ -53,15 +53,31 @@ const fetchRules = async () => {
     const dataSourceMap = new Map(dataSources.map((ds: any) => [ds.id, ds.name]))
     const projectMap = new Map(projects.map((project: any) => [project.id, project.name]))
     
-    // 为每个任务获取执行统计
+    // 为每个任务获取执行统计和最新执行结果
     const rulesWithStats = await Promise.all(
       tasks.map(async (task: any) => {
         try {
-          const statsResponse = await api.get(`/api/v1/inspection-tasks/${task.id}/stats`)
+          const [statsResponse, resultsResponse] = await Promise.all([
+            api.get(`/api/v1/inspection-tasks/${task.id}/stats`),
+            api.get(`/api/v1/inspection-tasks/${task.id}/results?limit=1`)
+          ])
+          
           const stats = statsResponse.data || {}
+          const results = resultsResponse.data || []
           
           const totalExecutions = stats.total_executions || 0
           const successRate = stats.success_rate || 0
+          
+          // 根据最新执行结果计算状态
+          let calculatedStatus = task.status
+          if (results.length > 0) {
+            const latestResult = results[0]
+            if (latestResult.check_passed === false) {
+              calculatedStatus = 'error'  // 最新执行失败，状态为错误
+            } else if (latestResult.check_passed === true) {
+              calculatedStatus = 'active'  // 最新执行成功，状态为正常
+            }
+          }
           
           return {
             id: task.id,
@@ -75,7 +91,7 @@ const fetchRules = async () => {
             expected_sql: task.expected_sql,
             check_expression: task.check_expression,
             cron_schedule: task.cron_schedule,
-            status: task.status,
+            status: calculatedStatus,
             last_run_at: task.last_run_at,
             created_at: task.created_at,
             execution_count: totalExecutions,

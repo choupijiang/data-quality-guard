@@ -186,6 +186,11 @@ class ProjectService:
     def delete_project(self, project_id: int) -> bool:
         db_project = self.get_project(project_id)
         if db_project:
+            # First delete related user permissions
+            self.db.query(UserProjectPermission).filter(
+                UserProjectPermission.project_id == project_id
+            ).delete()
+            # Then delete the project
             self.db.delete(db_project)
             self.db.commit()
             return True
@@ -489,14 +494,9 @@ class InspectionTaskService:
     
     def get_tasks_by_user_permissions(self, user_id: int, skip: int = 0, limit: int = 100) -> List[InspectionTask]:
         """获取用户有权限的项目下的inspection tasks"""
-        from app.models.models import UserProjectPermission
-        
-        # 获取用户有权限的项目ID列表
-        user_projects = self.db.query(UserProjectPermission.project_id).filter(
-            UserProjectPermission.user_id == user_id
-        ).all()
-        
-        project_ids = [perm.project_id for perm in user_projects]
+        # 使用UserService的get_accessible_projects方法来获取用户有权限的项目ID列表
+        user_service = UserService(self.db)
+        project_ids = user_service.get_accessible_projects(user_id)
         
         if not project_ids:
             return []
@@ -671,6 +671,12 @@ class InspectionTaskService:
     def delete_task(self, task_id: int) -> bool:
         task = self.get_task(task_id)
         if task:
+            # 首先删除关联的执行结果历史记录
+            self.db.query(InspectionResult).filter(
+                InspectionResult.task_id == task_id
+            ).delete()
+            
+            # 然后删除任务本身
             self.db.delete(task)
             self.db.commit()
             return True
@@ -773,7 +779,7 @@ class InspectionTaskService:
         # 计算成功率
         success_rate = 0
         if total_executions > 0:
-            success_rate = round((successful_executions / total_executions) * 100)
+            success_rate = round((successful_executions / total_executions) * 100, 1)
         
         return {
             "task_id": task_id,
@@ -787,7 +793,9 @@ class InspectionTaskService:
     
     def get_all_results_with_details(self, skip: int = 0, limit: int = 100) -> List[dict]:
         """获取所有任务的执行结果历史（包含详细信息）"""
+        # 只查询存在任务的执行结果，使用join过滤掉已删除任务的历史记录
         results = self.db.query(InspectionResult)\
+            .join(InspectionTask, InspectionResult.task_id == InspectionTask.id)\
             .order_by(InspectionResult.execution_time.desc())\
             .offset(skip)\
             .limit(limit)\
@@ -797,18 +805,19 @@ class InspectionTaskService:
         detailed_results = []
         for result in results:
             task = self.get_task(result.task_id)
-            detailed_results.append({
-                "id": result.id,
-                "task_id": result.task_id,
-                "task_name": task.name if task else "未知任务",
-                "data_source_name": task.data_source.name if task and task.data_source else "未知数据源",
-                "check_value": result.check_value,
-                "expected_value": result.expected_value,
-                "check_passed": result.check_passed,
-                "execution_time": result.execution_time,
-                "error_message": result.error_message,
-                "duration": 0  # 暂时设为0，后续可以添加实际计算
-            })
+            if task:  # 双重检查，确保任务存在
+                detailed_results.append({
+                    "id": result.id,
+                    "task_id": result.task_id,
+                    "task_name": task.name,
+                    "data_source_name": task.data_source.name if task.data_source else "未知数据源",
+                    "check_value": result.check_value,
+                    "expected_value": result.expected_value,
+                    "check_passed": result.check_passed,
+                    "execution_time": result.execution_time,
+                    "error_message": result.error_message,
+                    "duration": 0  # 暂时设为0，后续可以添加实际计算
+                })
         
         return detailed_results
     

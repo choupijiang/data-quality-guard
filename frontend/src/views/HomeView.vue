@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Connection, Cpu, Refresh } from '@element-plus/icons-vue'
 import { DashboardService, type GlobalStatistics, type ProjectStatistics } from '@/services/dashboard'
@@ -18,6 +18,8 @@ const globalStats = ref<GlobalStatistics>({
   overall_success_rate: 0
 })
 const projectStats = ref<ProjectStatistics[]>([])
+const lastRefreshTime = ref<Date>(new Date())
+let refreshTimer: NodeJS.Timeout | null = null
 
 const getSuccessColor = (rate: number) => {
   if (rate >= 80) return 'var(--apple-green)'
@@ -31,9 +33,43 @@ const getSuccessStatus = (rate: number) => {
   return '需关注'
 }
 
+const formatRefreshTime = () => {
+  const now = new Date(lastRefreshTime.value)
+  const hours = now.getHours().toString().padStart(2, '0')
+  const minutes = now.getMinutes().toString().padStart(2, '0')
+  const seconds = now.getSeconds().toString().padStart(2, '0')
+  return `${hours}:${minutes}:${seconds}`
+}
+
+const startAutoRefresh = () => {
+  // 清除可能存在的旧定时器
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+  
+  // 设置新的定时器，每5秒刷新一次
+  refreshTimer = setInterval(() => {
+    checkConnection()
+    loadDashboardData()
+    lastRefreshTime.value = new Date()
+  }, 5000)
+}
+
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
 onMounted(() => {
   checkConnection()
   loadDashboardData()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 
 const checkConnection = async () => {
@@ -62,10 +98,6 @@ const loadDashboardData = async () => {
   }
 }
 
-const refreshData = () => {
-  loadDashboardData()
-  checkConnection()
-}
 </script>
 
 <template>
@@ -81,10 +113,10 @@ const refreshData = () => {
               </h1>
             </div>
             <div class="hero-actions">
-              <button class="apple-button apple-button-secondary" @click="refreshData">
-                <el-icon><Refresh /></el-icon>
-                刷新数据
-              </button>
+              <div class="auto-refresh-info">
+                <el-icon class="refresh-icon"><Refresh /></el-icon>
+                <span>最后刷新: {{ formatRefreshTime() }}</span>
+              </div>
             </div>
           </div>
           
@@ -205,6 +237,31 @@ const refreshData = () => {
   display: flex;
   gap: var(--spacing-sm);
   flex-shrink: 0;
+}
+
+.auto-refresh-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--gray-2);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.refresh-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--apple-blue);
+  animation: apple-spin 2s linear infinite;
+}
+
+@keyframes apple-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Quick Stats Row */

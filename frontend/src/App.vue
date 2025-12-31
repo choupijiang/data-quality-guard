@@ -68,6 +68,11 @@ const isLoggedIn = computed(() => authStore.isAuthenticated)
 
 const loadNavStats = async () => {
   try {
+    // 只有在用户已认证时才加载导航统计
+    if (!authStore.isAuthenticated) {
+      return
+    }
+    
     const [sources, tasks, projects] = await Promise.all([
       api.get('/api/v1/data-sources/'),
       api.get('/api/v1/inspection-tasks/'),

@@ -364,3 +364,13 @@ backend/logs/
 frontend/dist/
 *.sqlite
 *.db3
+
+# Test files
+test*.py
+mcp_check.py
+backend/token.json
+
+# Claude Code files
+.claude/
+
+.playwright-mcp/
